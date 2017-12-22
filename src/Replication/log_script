@@ -1,0 +1,43 @@
+﻿drop trigger if exists tr_log_table on test.log_first cascade;
+drop table test.log_first cascade;
+drop table test.log_second cascade;
+drop table test.log_table cascade;
+
+create table if not exists test.log_first (
+	id serial not null primary key,
+	name varchar,
+	num integer
+);
+
+create table if not exists test.log_second (
+	id serial not null primary key,
+	name varchar,
+	num integer
+);
+
+create table if not exists test.log_table (
+	table_name varchar not null,
+	query varchar not null,
+	query_date timestamp,
+	commited boolean default false,
+	primary key (table_name, query_date)
+);
+
+CREATE OR REPLACE FUNCTION log_trigger() RETURNS trigger  
+AS $$
+DECLARE
+tableName varchar;
+cur_query varchar;
+BEGIN
+	select current_query() into cur_query;
+	tableName := TG_TABLE_SCHEMA||'.'||TG_TABLE_NAME;
+    insert into test.log_table values(tableName, cur_query, clock_timestamp(), false); //move select here (cur_query)
+    return NEW;
+END;
+$$
+LANGUAGE plpgsql volatile;
+
+CREATE TRIGGER tr_log_table
+BEFORE INSERT OR UPDATE OR DELETE
+  ON test.log_first
+  EXECUTE PROCEDURE log_trigger();
